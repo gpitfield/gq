@@ -42,7 +42,7 @@ func TestGQ(t *testing.T) {
 		Priority: priority,
 	}
 	total := 10
-	for i := 0; i < 10; i++ {
+	for i := 0; i < total; i++ {
 		err := gq.PostMessage("testing-gq", msg, time.Duration(0))
 		if err != nil {
 			t.Fatalf(err.Error())
@@ -85,6 +85,7 @@ func TestQueue(t *testing.T) {
 	priority := 3
 	drv := driver{}
 	rabbit, err := drv.Open(params)
+	defer rabbit.Close()
 	if err != nil {
 		t.Fatalf(err.Error())
 	}

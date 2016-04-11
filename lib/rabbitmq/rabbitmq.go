@@ -56,15 +56,27 @@ func (d *driver) Open(params *gq.ConnParam) (conn gq.Connection, err error) {
 }
 
 type Channel struct {
-	conn *amqp.Connection
+	conn    *amqp.Connection
+	channel *amqp.Channel
+}
+
+func (c *Channel) Channel() (ch *amqp.Channel, err error) {
+	if c.channel == nil {
+		c.channel, err = c.conn.Channel()
+	}
+	return c.channel, err
 }
 
 func (c *Channel) Post(queue string, msg gq.Message, delay time.Duration) (err error) {
-	ch, err := c.conn.Channel()
+	start := time.Now()
+	if delay != time.Duration(0) {
+		return errors.New(fmt.Sprintf("%s: %s", UnsupportedCallErr, "rabbitMQ does not support message delays."))
+	}
+	ch, err := c.Channel()
 	if err != nil {
 		return
 	}
-	defer ch.Close()
+	fmt.Println("since:", time.Since(start))
 	Queue(ch, queue)
 	body := msg.Body
 	err = ch.Publish(
@@ -139,5 +151,8 @@ func (c *Channel) Delete(queue string, identifier string) (err error) {
 }
 
 func (c *Channel) Close() (err error) {
+	if c.channel != nil {
+		defer c.channel.Close()
+	}
 	return c.conn.Close()
 }
