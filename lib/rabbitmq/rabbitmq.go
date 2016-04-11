@@ -30,7 +30,12 @@ func Queue(ch *amqp.Channel, name string) (q *amqp.Queue, err error) {
 		queues.RUnlock()
 		queues.Lock()
 		var qu amqp.Queue
-		qu, err = ch.QueueDeclare(name, false, false, false, false, nil)
+		priority := amqp.Table{"x-max-priority": byte(100)}
+		qu, err = ch.QueueDeclare(name, false, false, false, false, priority)
+		if err != nil {
+			fmt.Println(err)
+			return nil, err
+		}
 		queues.m[name] = &qu
 		queues.Unlock()
 	} else {
@@ -68,7 +73,6 @@ func (c *Channel) Channel() (ch *amqp.Channel, err error) {
 }
 
 func (c *Channel) Post(queue string, msg gq.Message, delay time.Duration) (err error) {
-	start := time.Now()
 	if delay != time.Duration(0) {
 		return errors.New(fmt.Sprintf("%s: %s", UnsupportedCallErr, "rabbitMQ does not support message delays."))
 	}
@@ -76,7 +80,6 @@ func (c *Channel) Post(queue string, msg gq.Message, delay time.Duration) (err e
 	if err != nil {
 		return
 	}
-	fmt.Println("since:", time.Since(start))
 	Queue(ch, queue)
 	body := msg.Body
 	err = ch.Publish(
