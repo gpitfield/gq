@@ -39,18 +39,21 @@ func TestGQ(t *testing.T) {
 	gq.Open("rabbitmq", params)
 	priority := 5
 	total := 10
+	delay := time.Duration(0)
 	for i := 0; i < total; i++ {
 		if priority == 5 {
 			priority = 1
+			delay = time.Duration(2) * time.Second
 		} else {
 			priority = 5
+			delay = time.Duration(0)
 		}
 		msg := gq.Message{
 			Body:     []byte(gqTestMsg),
 			Priority: priority,
 		}
 		fmt.Println("queing priority", msg.Priority)
-		err := gq.PostMessage("testing-gq", msg, time.Duration(0))
+		err := gq.PostMessage("testing-gq", msg, delay)
 		if err != nil {
 			t.Fatalf(err.Error())
 		}
@@ -63,9 +66,6 @@ func TestGQ(t *testing.T) {
 		t.Fatalf("%s received instead of %s", string(rcvd.Body), gqTestMsg)
 	}
 	fmt.Println("Received priority", rcvd.Priority)
-	if rcvd.Priority != priority {
-		// t.Fatalf("priority was changed in flight.")
-	}
 	err = rcvd.Ack()
 	if err != nil {
 		t.Fatalf(err.Error())
@@ -76,9 +76,11 @@ func TestGQ(t *testing.T) {
 		t.Fatalf(err.Error())
 	}
 	i := 0
+	fmt.Println("waiting for first message.")
 	for message := range msgChan {
 		i += 1
 		fmt.Println("Received priority", message.Priority)
+		fmt.Println("acking msg")
 		err = message.Ack()
 		if err != nil {
 			t.Fatalf(err.Error())
@@ -86,6 +88,7 @@ func TestGQ(t *testing.T) {
 		if i == total-1 {
 			break
 		}
+		fmt.Println("waiting for more...")
 	}
 }
 

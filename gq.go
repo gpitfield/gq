@@ -12,9 +12,12 @@ queue to one of the priority queues may not result in the desired behavior.
 package gq
 
 import (
+	"errors"
 	"sync"
 	"time"
 )
+
+const connectionUnavailableErr = "Queue connection unavailable."
 
 var (
 	drivers = struct {
@@ -136,5 +139,8 @@ func PostMessage(name string, msg Message, delay time.Duration) (err error) {
 	return svc.PostMessage(name, msg, delay)
 }
 func (svc *Service) PostMessage(name string, msg Message, delay time.Duration) (err error) {
+	if svc.connection == nil {
+		return errors.New(connectionUnavailableErr)
+	}
 	return svc.connection.Post(name, msg, delay)
 }
