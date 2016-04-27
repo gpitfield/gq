@@ -1,13 +1,11 @@
 /*
-Package gq is a simple queuing package. It lets you publish a []byte - typically json output - to a queue,
-and subscribe to the output of that queue elsewhere. The queue can also take a priority level.
+Package gq is a simple queuing package. It lets you publish a Message to a queue,
+and subscribe to the output of that queue elsewhere.
 
 The backend can be either none, in which case go channels are the queue and the service is not distributed,
 or a distributed queue service like SQS or RabbitMQ.
 
-Note that prioritized queues are, at least in SQS, implemented by creating multiple queues with variant names
-whose suffixes indicate the priority level they carry. Consuming directly from an identically named
-queue to one of the priority queues may not result in the desired behavior.
+Messages can also take a priority level. If the backend does not support message priorities, messages are delivered FIFO.
 */
 package gq
 
@@ -17,14 +15,17 @@ import (
 	"time"
 )
 
-const connectionUnavailableErr = "Queue connection unavailable."
+const (
+	ErrConnectionUnavailable = "Queue connection unavailable."
+	ErrAlreadyOpen           = "Service already open."
+)
 
 var (
-	drivers = struct {
+	brokers = struct {
 		sync.RWMutex
-		m map[string]Driver
-	}{m: make(map[string]Driver)}
-	svc *Service = &Service{}
+		m map[string]Broker
+	}{m: make(map[string]Broker)}
+	svc *Service
 )
 
 // Message is the struct type that gq works with.
@@ -41,14 +42,21 @@ func (m *Message) Ack() error {
 	return nil
 }
 
-type Driver interface {
+type Broker interface {
 	Open(params *ConnParam) (Connection, error)
 }
 
 type Service struct { // equivalent to sql DB
-	driver     Driver
+	broker     Broker
 	param      *ConnParam
 	connection Connection
+}
+
+type ConnParam struct {
+	Host   string
+	Port   int
+	UserId string
+	Secret string
 }
 
 func init() {
@@ -60,44 +68,43 @@ func New() (svc *Service) {
 	return &Service{}
 }
 
-// gets called by the user; sets config for the chosen service
-func Open(driver string, conf *ConnParam) *Service {
-	svc.Open(driver, conf)
-	return svc
+func Open(broker string, conf *ConnParam) (*Service, error) {
+	err := svc.Open(broker, conf)
+	return svc, err
 }
-func (svc *Service) Open(driver string, conf *ConnParam) {
+
+// Set the Service's config and open a connection to the broker.
+func (svc *Service) Open(broker string, conf *ConnParam) (err error) {
+	if svc.connection != nil {
+		return errors.New(ErrAlreadyOpen)
+	}
 	svc.param = conf
-	// TODO: this should be locked
-	svc.driver = drivers.m[driver]
-	svc.connection, _ = svc.driver.Open(conf)
+	brokers.RLock()
+	svc.broker = brokers.m[broker]
+	brokers.RUnlock()
+	svc.connection, err = svc.broker.Open(conf)
+	return err
 }
 
-func (s *Service) Close() {
-	if s.connection != nil {
-		s.connection.Close()
+func (svc *Service) Close() {
+	if svc.connection != nil {
+		svc.connection.Close()
+		svc.connection = nil
 	}
 }
 
-// gets called by the driver lib packages
-func Register(name string, driver Driver) { svc.Register(name, driver) }
-func (svc *Service) Register(name string, driver Driver) {
-	// make the driver available in drivers
-	drivers.RLock()
-	if _, exists := drivers.m[name]; !exists {
-		drivers.RUnlock()
-		drivers.Lock()
-		drivers.m[name] = driver
-		drivers.Unlock()
+// Register a message broker with the gq service
+func Register(name string, broker Broker) { svc.Register(name, broker) }
+func (svc *Service) Register(name string, broker Broker) {
+	brokers.RLock()
+	if _, exists := brokers.m[name]; !exists {
+		brokers.RUnlock()
+		brokers.Lock()
+		brokers.m[name] = broker
+		brokers.Unlock()
 	} else {
-		drivers.RUnlock()
+		brokers.RUnlock()
 	}
-}
-
-type ConnParam struct {
-	Host   string
-	Port   int
-	UserId string
-	Secret string
 }
 
 // Get and Consume functions where noAck is false must return Messages with non-nil
@@ -130,8 +137,8 @@ func (svc *Service) GetMessage(name string, noAck bool) (msg Message, err error)
 func Consume(name string, noAck bool) (c chan Message, err error) {
 	return svc.Consume(name, noAck)
 }
-func (s *Service) Consume(name string, noAck bool) (c chan Message, err error) {
-	return s.connection.Consume(name, noAck)
+func (svc *Service) Consume(name string, noAck bool) (c chan Message, err error) {
+	return svc.connection.Consume(name, noAck)
 }
 
 // Put a message onto the named queue
@@ -140,7 +147,7 @@ func PostMessage(name string, msg Message, delay time.Duration) (err error) {
 }
 func (svc *Service) PostMessage(name string, msg Message, delay time.Duration) (err error) {
 	if svc.connection == nil {
-		return errors.New(connectionUnavailableErr)
+		return errors.New(ErrConnectionUnavailable)
 	}
 	return svc.connection.Post(name, msg, delay)
 }

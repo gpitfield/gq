@@ -95,7 +95,7 @@ func TestGQ(t *testing.T) {
 func TestQueue(t *testing.T) {
 	params := GetTestConfig(t)
 	priority := 3
-	drv := driver{}
+	drv := broker{}
 	rabbit, err := drv.Open(params)
 	defer rabbit.Close()
 	if err != nil {

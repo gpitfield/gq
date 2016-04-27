@@ -62,12 +62,12 @@ func Queue(c *Channel, name string) (q *amqp.Queue, err error) {
 }
 
 func init() {
-	gq.Register("rabbitmq", &driver{})
+	gq.Register("rabbitmq", &broker{})
 }
 
-type driver struct{}
+type broker struct{}
 
-func (d *driver) Open(params *gq.ConnParam) (conn gq.Connection, err error) {
+func (b *broker) Open(params *gq.ConnParam) (conn gq.Connection, err error) {
 	rabbitconn, err := amqp.Dial(ConnString(*params))
 	if rabbitconn == nil {
 		return nil, errors.New(RabbitMQConnectionUnavailable)
