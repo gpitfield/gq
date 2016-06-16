@@ -150,7 +150,7 @@ func (c *Channel) Consume(queue string, noAck bool) (out chan gq.Message, err er
 	if err != nil {
 		return
 	}
-	ch.Qos(1, 0, true)
+	// ch.Qos(1, 0, true)
 	Queue(c, queue)
 	msgs, err := ch.Consume(
 		queue, // queue
