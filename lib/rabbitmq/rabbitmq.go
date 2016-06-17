@@ -197,9 +197,7 @@ func (c *Channel) GetOne(queue string, noAck bool) (msg gq.Message, err error) {
 	msg.Body = message.Body
 	msg.Priority = int(message.Priority)
 	if noAck == false {
-		msg.AckFunc = func() error {
-			return message.Ack(false)
-		}
+		msg.AckFunc = AckFunc(message)
 	}
 	return
 }
