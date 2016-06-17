@@ -145,12 +145,20 @@ func (c *Channel) Post(queue string, msg gq.Message, delay time.Duration) (err e
 	return
 }
 
+// create the AckFunc on a copy of the Delivery
+func AckFunc(m amqp.Delivery) func() error {
+	return func() error {
+		log.Printf("Executing ack on GQ msg:%p\n", &m)
+		return m.Ack(false)
+	}
+}
+
 func (c *Channel) Consume(queue string, noAck bool) (out chan gq.Message, err error) {
 	ch, err := c.Channel()
 	if err != nil {
 		return
 	}
-	// ch.Qos(1, 0, true)
+	ch.Qos(5, 0, true)
 	Queue(c, queue)
 	msgs, err := ch.Consume(
 		queue, // queue
@@ -171,9 +179,7 @@ func (c *Channel) Consume(queue string, noAck bool) (out chan gq.Message, err er
 			msg.Body = m.Body
 			msg.Priority = int(m.Priority)
 			if !noAck {
-				msg.AckFunc = func() error {
-					return m.Ack(false)
-				}
+				msg.AckFunc = AckFunc(m)
 			}
 			out <- msg
 		}
