@@ -148,7 +148,6 @@ func (c *Channel) Post(queue string, msg gq.Message, delay time.Duration) (err e
 // create the AckFunc on a copy of the Delivery
 func AckFunc(m amqp.Delivery) func() error {
 	return func() error {
-		log.Printf("Executing ack on GQ msg:%p\n", &m)
 		return m.Ack(false)
 	}
 }
