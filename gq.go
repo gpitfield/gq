@@ -86,6 +86,7 @@ func (svc *Service) Open(broker string, conf *ConnParam) (err error) {
 	return err
 }
 
+func Close() { svc.Close() }
 func (svc *Service) Close() {
 	if svc.connection != nil {
 		svc.connection.Close()
@@ -115,10 +116,13 @@ type Connection interface {
 	GetOne(queue string, noAck bool) (msg Message, err error)
 
 	// Return a channel on which messages will be received
-
 	Consume(queue string, noAck bool) (c chan Message, err error)
+
 	// Send a message to the queue service
 	Post(queue string, msg Message, delay time.Duration) (err error)
+
+	// Get the count of outstanding messages on a queue
+	Count(queue string) (count int, err error)
 
 	// Delete a message from named queue and message identifier
 	Delete(queue string, identifier string) (err error)
@@ -128,26 +132,32 @@ type Connection interface {
 }
 
 // Get a single message from the named queue, blocking until one is received
-func GetMessage(name string, noAck bool) (msg Message, err error) { return svc.GetMessage(name, noAck) }
-func (svc *Service) GetMessage(name string, noAck bool) (msg Message, err error) {
-	return svc.connection.GetOne(name, noAck)
+func GetMessage(queue string, noAck bool) (msg Message, err error) {
+	return svc.GetMessage(queue, noAck)
+}
+func (svc *Service) GetMessage(queue string, noAck bool) (msg Message, err error) {
+	return svc.connection.GetOne(queue, noAck)
 }
 
 // Get a channel from which messages can be read.
-func Consume(name string, noAck bool) (c chan Message, err error) {
-	return svc.Consume(name, noAck)
+func Consume(queue string, noAck bool) (c chan Message, err error) { return svc.Consume(queue, noAck) }
+func (svc *Service) Consume(queue string, noAck bool) (c chan Message, err error) {
+	return svc.connection.Consume(queue, noAck)
 }
-func (svc *Service) Consume(name string, noAck bool) (c chan Message, err error) {
-	return svc.connection.Consume(name, noAck)
+
+// Count returns the count of messages on the named queue
+func Count(queue string) (count int, err error) { return svc.Count(queue) }
+func (svc *Service) Count(queue string) (count int, err error) {
+	return svc.connection.Count(queue)
 }
 
 // Put a message onto the named queue
-func PostMessage(name string, msg Message, delay time.Duration) (err error) {
-	return svc.PostMessage(name, msg, delay)
+func PostMessage(queue string, msg Message, delay time.Duration) (err error) {
+	return svc.PostMessage(queue, msg, delay)
 }
-func (svc *Service) PostMessage(name string, msg Message, delay time.Duration) (err error) {
+func (svc *Service) PostMessage(queue string, msg Message, delay time.Duration) (err error) {
 	if svc.connection == nil {
 		return errors.New(ErrConnectionUnavailable)
 	}
-	return svc.connection.Post(name, msg, delay)
+	return svc.connection.Post(queue, msg, delay)
 }

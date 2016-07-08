@@ -90,6 +90,52 @@ func TestGQ(t *testing.T) {
 		}
 		fmt.Println("waiting for more...")
 	}
+	gq.Close()
+}
+
+func TestCount(t *testing.T) {
+	var (
+		params   = GetTestConfig(t)
+		priority = 5
+		total    = 10
+		queue    = "testing-gq"
+		err      error
+	)
+	gq.Open("rabbitmq", params)
+
+	for i := 0; i < total; i++ {
+		msg := gq.Message{
+			Body:     []byte(gqTestMsg),
+			Priority: priority,
+		}
+		err := gq.PostMessage("testing-gq", msg, 0)
+		if err != nil {
+			t.Fatalf(err.Error())
+		}
+	}
+	time.Sleep(time.Millisecond * time.Duration(10)) // it takes a few ms for the count to show up
+	count, err := gq.Count(queue)
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
+	if count != total {
+		t.Fatalf("%d queued instead of %d", count, total)
+	}
+
+	msgChan, err := gq.Consume(queue, false)
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
+
+	for total > 0 {
+		message := <-msgChan
+		total--
+		err = message.Ack()
+		if err != nil {
+			t.Fatalf(err.Error())
+		}
+	}
+	gq.Close()
 }
 
 func TestQueue(t *testing.T) {

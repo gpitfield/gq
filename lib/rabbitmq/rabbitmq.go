@@ -201,6 +201,18 @@ func (c *Channel) GetOne(queue string, noAck bool) (msg gq.Message, err error) {
 	return
 }
 
+func (c *Channel) Count(queue string) (count int, err error) {
+	ch, err := c.Channel()
+	if err != nil {
+		return
+	}
+	q, err := ch.QueueInspect(queue)
+	if err != nil {
+		return
+	}
+	return q.Messages, nil
+}
+
 func (c *Channel) Delete(queue string, identifier string) (err error) {
 	return errors.New(UnsupportedCallErr)
 }
