@@ -1,11 +1,11 @@
 package rabbitmq
 
 import (
-	"fmt"
 	"testing"
 	"time"
 
 	"github.com/gpitfield/gq"
+	log "github.com/gpitfield/relog"
 	"github.com/spf13/viper"
 )
 
@@ -35,6 +35,7 @@ func GetTestConfig(t *testing.T) *gq.ConnParam {
 }
 
 func TestGQ(t *testing.T) {
+	log.SetVerbosity(log.LInfo)
 	params := GetTestConfig(t)
 	gq.Open("rabbitmq", params)
 	priority := 5
@@ -52,7 +53,7 @@ func TestGQ(t *testing.T) {
 			Body:     []byte(gqTestMsg),
 			Priority: priority,
 		}
-		fmt.Println("queing priority", msg.Priority)
+		log.Debug("queing priority", msg.Priority)
 		err := gq.PostMessage("testing-gq", msg, delay)
 		if err != nil {
 			t.Fatalf(err.Error())
@@ -65,7 +66,7 @@ func TestGQ(t *testing.T) {
 	if string(rcvd.Body) != gqTestMsg {
 		t.Fatalf("%s received instead of %s", string(rcvd.Body), gqTestMsg)
 	}
-	fmt.Println("Received priority", rcvd.Priority)
+	log.Debug("Received priority", rcvd.Priority)
 	err = rcvd.Ack()
 	if err != nil {
 		t.Fatalf(err.Error())
@@ -76,11 +77,11 @@ func TestGQ(t *testing.T) {
 		t.Fatalf(err.Error())
 	}
 	i := 0
-	fmt.Println("waiting for first message.")
+	log.Debug("waiting for first message.")
 	for message := range msgChan {
 		i += 1
-		fmt.Println("Received priority", message.Priority)
-		fmt.Println("acking msg")
+		log.Debug("Received priority", message.Priority)
+		log.Debug("acking msg")
 		err = message.Ack()
 		if err != nil {
 			t.Fatalf(err.Error())
@@ -88,7 +89,7 @@ func TestGQ(t *testing.T) {
 		if i == total-1 {
 			break
 		}
-		fmt.Println("waiting for more...")
+		log.Debug("waiting for more...")
 	}
 	gq.Close()
 }

@@ -3,11 +3,11 @@ package rabbitmq
 import (
 	"errors"
 	"fmt"
-	"log"
 	"sync"
 	"time"
 
 	"github.com/gpitfield/gq"
+	log "github.com/gpitfield/relog"
 	"github.com/streadway/amqp"
 )
 
@@ -96,7 +96,7 @@ func (c *Channel) Channel() (ch *amqp.Channel, err error) {
 			if err == nil {
 				c.exchange = StandardExchange
 			} else {
-				log.Println(err)
+				log.Error(err)
 				return c.channel, err
 			}
 			delay := amqp.Table{"x-delayed-type": "direct"}
@@ -104,7 +104,7 @@ func (c *Channel) Channel() (ch *amqp.Channel, err error) {
 			if err == nil {
 				c.delayExchange = DelayExchange
 			} else {
-				log.Println(err)
+				log.Error(err)
 				return c.channel, err
 			}
 		}
@@ -124,7 +124,7 @@ func (c *Channel) Post(queue string, msg gq.Message, delay time.Duration) (err e
 	var headers amqp.Table
 	if delay > time.Duration(0) {
 		headers = amqp.Table{"x-delay": int64(delay / time.Millisecond)} // rabbitmq takes delay in milliseconds vs golang nanoseconds
-		log.Printf("delaying this message %v\n", headers)
+		log.Debugf("delaying this message %v\n", headers)
 		exchange = c.delayExchange
 	} else {
 		exchange = c.exchange
@@ -182,6 +182,8 @@ func (c *Channel) Consume(queue string, noAck bool) (out chan gq.Message, err er
 			}
 			out <- msg
 		}
+		log.Debug("The messages channel in gq/rabbitmq is closed")
+		close(out) // close the out channel when the msgs channel closes
 	}(msgs)
 	return out, err
 }
