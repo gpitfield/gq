@@ -124,7 +124,6 @@ func (c *Channel) Post(queue string, msg gq.Message, delay time.Duration) (err e
 	var headers amqp.Table
 	if delay > time.Duration(0) {
 		headers = amqp.Table{"x-delay": int64(delay / time.Millisecond)} // rabbitmq takes delay in milliseconds vs golang nanoseconds
-		log.Debugf("delaying this message %v\n", headers)
 		exchange = c.delayExchange
 	} else {
 		exchange = c.exchange
