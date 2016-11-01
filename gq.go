@@ -53,10 +53,11 @@ type Service struct { // equivalent to sql DB
 }
 
 type ConnParam struct {
-	Host   string
-	Port   int
-	UserId string
-	Secret string
+	Host      string
+	Port      int
+	UserId    string
+	Secret    string
+	Heartbeat time.Duration // Server Heartbeat timeout, if applicable to underlying transport
 }
 
 func init() {

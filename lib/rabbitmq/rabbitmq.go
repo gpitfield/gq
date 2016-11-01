@@ -24,7 +24,7 @@ const RabbitMQConnectionUnavailable = "RabbitMQ host connection unavailable."
 const StandardExchange = "gq-immediate"
 const DelayExchange = "gq-delay"
 
-func ConnString(params gq.ConnParam) string {
+func ConnString(params *gq.ConnParam) string {
 	return fmt.Sprintf("amqp://%s:%s@%s:%v/", params.UserId, params.Secret, params.Host, params.Port)
 }
 
@@ -68,7 +68,13 @@ func init() {
 type broker struct{}
 
 func (b *broker) Open(params *gq.ConnParam) (conn gq.Connection, err error) {
-	rabbitconn, err := amqp.Dial(ConnString(*params))
+	var rabbitconn *amqp.Connection
+
+	if params.Heartbeat == 0 {
+		rabbitconn, err = amqp.Dial(ConnString(params))
+	} else {
+		rabbitconn, err = amqp.DialConfig(ConnString(params), amqp.Config{Heartbeat: params.Heartbeat})
+	}
 	if rabbitconn == nil {
 		return nil, errors.New(RabbitMQConnectionUnavailable)
 	}
@@ -181,7 +187,6 @@ func (c *Channel) Consume(queue string, noAck bool) (out chan gq.Message, err er
 			}
 			out <- msg
 		}
-		log.Debug("The messages channel in gq/rabbitmq is closed")
 		close(out) // close the out channel when the msgs channel closes
 	}(msgs)
 	return out, err
@@ -219,8 +224,5 @@ func (c *Channel) Delete(queue string, identifier string) (err error) {
 }
 
 func (c *Channel) Close() (err error) {
-	if c.channel != nil {
-		defer c.channel.Close()
-	}
 	return c.conn.Close()
 }

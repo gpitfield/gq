@@ -27,10 +27,11 @@ func GetTestConfig(t *testing.T) *gq.ConnParam {
 	user := "guest"
 	secret := "guest"
 	return &gq.ConnParam{
-		Host:   host,
-		Port:   port,
-		Secret: secret,
-		UserId: user,
+		Host:      host,
+		Port:      port,
+		Secret:    secret,
+		UserId:    user,
+		Heartbeat: time.Duration(time.Second * 10),
 	}
 }
 
